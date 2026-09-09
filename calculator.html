@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Calculator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  :root{
+    --page-bg: #14161c;
+    --body-panel: #262a35;
+    --body-panel-edge: #323744;
+    --display-bg: #0d0f14;
+    --display-text: #6ee7a8;
+    --display-text-dim: #3d7a5c;
+    --key-num-bg: #3a3f4d;
+    --key-num-bg-hover: #454b5c;
+    --key-num-text: #ecece6;
+    --key-op-bg: #4a4530;
+    --key-op-bg-active: #c9a227;
+    --key-op-text: #d9c98a;
+    --key-clear-bg: #4a3230;
+    --key-clear-text: #d9a09a;
+    --key-eq-bg: #1f4a37;
+    --key-eq-text: #6ee7a8;
+    --radius-body: 22px;
+    --radius-key: 12px;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:
+      radial-gradient(circle at 30% 20%, #1c2029 0%, var(--page-bg) 60%);
+    font-family:'IBM Plex Sans', sans-serif;
+    padding:24px;
+  }
+
+  .device{
+    width:320px;
+    background:linear-gradient(180deg, var(--body-panel-edge), var(--body-panel));
+    border-radius:var(--radius-body);
+    padding:20px;
+    box-shadow:
+      0 30px 60px -20px rgba(0,0,0,0.6),
+      inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  .display{
+    background:var(--display-bg);
+    border-radius:14px;
+    padding:22px 18px 16px;
+    margin-bottom:16px;
+    text-align:right;
+    overflow:hidden;
+    box-shadow:inset 0 2px 6px rgba(0,0,0,0.6);
+  }
+
+  .display .expression{
+    font-family:'JetBrains Mono', monospace;
+    font-size:13px;
+    color:var(--display-text-dim);
+    min-height:16px;
+    letter-spacing:0.5px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .display .current{
+    font-family:'JetBrains Mono', monospace;
+    font-weight:500;
+    font-size:38px;
+    color:var(--display-text);
+    text-shadow:0 0 14px rgba(110,231,168,0.35);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    margin-top:2px;
+  }
+
+  .keys{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:10px;
+  }
+
+  button{
+    border:none;
+    border-radius:var(--radius-key);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:18px;
+    font-weight:500;
+    padding:16px 0;
+    cursor:pointer;
+    transition:transform 0.06s ease, filter 0.15s ease;
+    box-shadow:0 2px 0 rgba(0,0,0,0.25);
+  }
+
+  button:active{
+    transform:translateY(2px);
+    box-shadow:0 0 0 rgba(0,0,0,0.25);
+  }
+
+  .num{ background:var(--key-num-bg); color:var(--key-num-text); }
+  .num:hover{ background:var(--key-num-bg-hover); }
+
+  .op{ background:var(--key-op-bg); color:var(--key-op-text); }
+  .op.active{ background:var(--key-op-bg-active); color:#1a1a12; }
+
+  .fn{ background:var(--key-clear-bg); color:var(--key-clear-text); }
+
+  .eq{ background:var(--key-eq-bg); color:var(--key-eq-text); }
+
+  .span-2{ grid-column:span 2; text-align:left; padding-left:24px; }
+</style>
+</head>
+<body>
+
+<div class="device">
+  <div class="display">
+    <div class="expression" id="expression">&nbsp;</div>
+    <div class="current" id="current">0</div>
+  </div>
+
+  <div class="keys">
+    <button class="fn" data-action="clear">AC</button>
+    <button class="fn" data-action="sign">±</button>
+    <button class="fn" data-action="percent">%</button>
+    <button class="op" data-op="÷">÷</button>
+
+    <button class="num" data-digit="7">7</button>
+    <button class="num" data-digit="8">8</button>
+    <button class="num" data-digit="9">9</button>
+    <button class="op" data-op="×">×</button>
+
+    <button class="num" data-digit="4">4</button>
+    <button class="num" data-digit="5">5</button>
+    <button class="num" data-digit="6">6</button>
+    <button class="op" data-op="−">−</button>
+
+    <button class="num" data-digit="1">1</button>
+    <button class="num" data-digit="2">2</button>
+    <button class="num" data-digit="3">3</button>
+    <button class="op" data-op="+">+</button>
+
+    <button class="num span-2" data-digit="0">0</button>
+    <button class="num" data-action="decimal">.</button>
+    <button class="eq" data-action="equals">=</button>
+  </div>
+</div>
+
+<script>
+  const currentEl = document.getElementById('current');
+  const expressionEl = document.getElementById('expression');
+
+  let current = '0';
+  let previous = null;
+  let operator = null;
+  let overwrite = true;
+
+  const opButtons = document.querySelectorAll('.op');
+
+  function updateDisplay(){
+    currentEl.textContent = current;
+    expressionEl.textContent = previous !== null
+      ? `${previous} ${operator}`
+      : '\u00A0';
+  }
+
+  function setActiveOp(op){
+    opButtons.forEach(b => b.classList.toggle('active', b.dataset.op === op));
+  }
+
+  function inputDigit(d){
+    if (overwrite){
+      current = d === '0' ? '0' : d;
+      overwrite = false;
+    } else {
+      if (current.length >= 12) return;
+      current = current === '0' ? d : current + d;
+    }
+  }
+
+  function inputDecimal(){
+    if (overwrite){
+      current = '0.';
+      overwrite = false;
+      return;
+    }
+    if (!current.includes('.')) current += '.';
+  }
+
+  function compute(a, b, op){
+    a = parseFloat(a); b = parseFloat(b);
+    switch(op){
+      case '+': return a + b;
+      case '−': return a - b;
+      case '×': return a * b;
+      case '÷': return b === 0 ? NaN : a / b;
+      default: return b;
+    }
+  }
+
+  function formatResult(n){
+    if (Number.isNaN(n)) return 'Error';
+    let s = parseFloat(n.toPrecision(12)).toString();
+    if (s.length > 14) s = n.toExponential(6);
+    return s;
+  }
+
+  function chooseOperator(op){
+    if (operator && !overwrite){
+      const result = compute(previous, current, operator);
+      current = formatResult(result);
+    }
+    previous = current;
+    operator = op;
+    overwrite = true;
+    setActiveOp(op);
+  }
+
+  function equals(){
+    if (operator === null || overwrite) return;
+    const result = compute(previous, current, operator);
+    current = formatResult(result);
+    previous = null;
+    operator = null;
+    overwrite = true;
+    setActiveOp(null);
+  }
+
+  function clearAll(){
+    current = '0';
+    previous = null;
+    operator = null;
+    overwrite = true;
+    setActiveOp(null);
+  }
+
+  function toggleSign(){
+    if (current === '0') return;
+    current = current.startsWith('-') ? current.slice(1) : '-' + current;
+  }
+
+  function percent(){
+    current = formatResult(parseFloat(current) / 100);
+  }
+
+  document.querySelector('.keys').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+
+    if (btn.dataset.digit !== undefined) inputDigit(btn.dataset.digit);
+    else if (btn.dataset.op !== undefined) chooseOperator(btn.dataset.op);
+    else if (btn.dataset.action === 'decimal') inputDecimal();
+    else if (btn.dataset.action === 'equals') equals();
+    else if (btn.dataset.action === 'clear') clearAll();
+    else if (btn.dataset.action === 'sign') toggleSign();
+    else if (btn.dataset.action === 'percent') percent();
+
+    updateDisplay();
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key >= '0' && e.key <= '9') inputDigit(e.key);
+    else if (e.key === '.') inputDecimal();
+    else if (e.key === '+') chooseOperator('+');
+    else if (e.key === '-') chooseOperator('−');
+    else if (e.key === '*') chooseOperator('×');
+    else if (e.key === '/') { e.preventDefault(); chooseOperator('÷'); }
+    else if (e.key === 'Enter' || e.key === '=') equals();
+    else if (e.key === 'Escape') clearAll();
+    else if (e.key === 'Backspace'){
+      current = current.length > 1 ? current.slice(0, -1) : '0';
+      if (current === '-') current = '0';
+    }
+    else return;
+
+    updateDisplay();
+  });
+
+  updateDisplay();
+</script>
+
+</body>
+</html>
